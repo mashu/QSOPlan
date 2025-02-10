@@ -19,10 +19,11 @@ export const BANDS: Record<Band, typeof CB_CHANNELS | typeof PMR_CHANNELS> = {
 };
 
 export interface QSOFormData {
-  recipient: string;           // Call sign of the other station (max 10 chars)
-  frequency: number;           // MHz with 3 decimal places
-  mode: Modulation;           // SSB, FM, or AM
-  datetime: string;           // ISO date string
-  initiator_location: string; // Grid square (6 chars)
-  recipient_location: string; // Grid square (6 chars)
+  initiator_call_sign: string;    // Pre-filled with user's call sign
+  recipient: string;              // Call sign of the other station (max 10 chars)
+  frequency: number;              // MHz with 3 decimal places
+  mode: Modulation;              // SSB, FM, or AM
+  datetime: string;              // ISO date string
+  initiator_location: string;    // Grid square (6 chars)
+  recipient_location: string;    // Grid square (6 chars)
 }

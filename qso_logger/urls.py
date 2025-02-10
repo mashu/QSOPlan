@@ -4,6 +4,7 @@ from .views import (
     QSOContactViewSet,
     change_password,
     UserProfileView,
+    search_callsigns,
 )
 
 router = DefaultRouter()
@@ -13,4 +14,5 @@ urlpatterns = [
     path('', include(router.urls)),
     path('user/change-password/', change_password, name='change-password'),
     path('user/profile/', UserProfileView.as_view(), name='user-profile'),
+    path('users/callsigns/', search_callsigns, name='search-callsigns'),
 ]

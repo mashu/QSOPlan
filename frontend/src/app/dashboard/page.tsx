@@ -1,21 +1,41 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/lib/auth';
 import QSOList from '@/components/qso-list';
 import QSOForm from '@/components/qso-form';
+import api from '@/lib/api';
 
 export default function Dashboard() {
   const router = useRouter();
-  const { token } = useAuthStore();
+  const { token, setUser } = useAuthStore();
+  const [key, setKey] = useState(0);
 
   useEffect(() => {
     if (!token) {
       router.push('/login');
+      return;
     }
-  }, [token, router]);
+
+    const fetchUserProfile = async () => {
+      try {
+        const response = await api.get('/api/user/profile/', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUser(response.data);
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, [token, router, setUser]);
+
+  const handleQSOSuccess = () => {
+    setKey(prev => prev + 1);
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-900 to-black p-6">
@@ -40,8 +60,8 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
-        <QSOForm onSuccess={() => {}} />
-        <QSOList />
+        <QSOForm onSuccess={handleQSOSuccess} />
+        <QSOList key={key} />
       </div>
     </main>
   );

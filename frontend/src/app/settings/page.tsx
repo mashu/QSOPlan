@@ -1,3 +1,4 @@
+// frontend/src/app/settings/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,7 +14,7 @@ export default function Settings() {
   
   const [formData, setFormData] = useState({
     email: '',
-    call_sign: '',
+    call_sign: '', // This will be display-only
     default_grid_square: '',
   });
 
@@ -52,9 +53,10 @@ export default function Settings() {
     setMessage('');
 
     try {
-      const response = await api.put('/api/user/profile/', formData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.put('/api/user/profile/', 
+        { email: formData.email, default_grid_square: formData.default_grid_square },
+        { headers: { Authorization: `Bearer ${token}` }}
+      );
       setUser({ ...user!, ...response.data });
       setMessage('Profile updated successfully');
     } catch (error) {
@@ -137,11 +139,12 @@ export default function Settings() {
               <input
                 type="text"
                 value={formData.call_sign}
-                onChange={(e) => setFormData({ ...formData, call_sign: e.target.value.toUpperCase() })}
-                className="w-full p-2 rounded bg-white/5 border border-white/20 text-white"
-                pattern="[A-Z0-9]{3,10}"
-                title="Call sign must be 3-10 alphanumeric characters"
+                disabled
+                className="w-full p-2 rounded bg-white/5 border border-white/20 text-white opacity-50 cursor-not-allowed"
               />
+              <p className="text-sm text-gray-400 mt-1">
+                Call sign can only be changed by an administrator
+              </p>
             </div>
 
             <div>

@@ -11,7 +11,8 @@ from .serializers import (
     QSOContactSerializer, 
     UserSerializer,
     PasswordChangeSerializer,
-    UserUpdateSerializer
+    UserUpdateSerializer,
+    CallSignSerializer
 )
 
 class QSOContactViewSet(viewsets.ModelViewSet):
@@ -23,7 +24,7 @@ class QSOContactViewSet(viewsets.ModelViewSet):
         user_call_sign = self.request.user.call_sign
         return QSOContact.objects.filter(
             Q(initiator=self.request.user) |
-            Q(initiator__call_sign=user_call_sign)
+            Q(recipient=user_call_sign)
         ).order_by('-datetime')
 
     def perform_create(self, serializer):
@@ -31,30 +32,28 @@ class QSOContactViewSet(viewsets.ModelViewSet):
         # Save the new QSO (always unconfirmed initially)
         qso = serializer.save(initiator=self.request.user, confirmed=False)
         
-        # Look for a matching QSO that was previously logged by the recipient
+        # Look for matching QSOs within the last hour
         try:
+            # Try to find the user by call sign
             recipient_user = User.objects.get(call_sign=qso.recipient)
             
-            # Check if the recipient has already logged this QSO
+            # Look for a matching QSO within 1 hour where locations are swapped
             matching_qso = QSOContact.objects.filter(
                 initiator=recipient_user,
                 recipient=qso.initiator.call_sign,
                 datetime__range=(
-                    qso.datetime - timedelta(minutes=5),
-                    qso.datetime + timedelta(minutes=5)
+                    qso.datetime - timedelta(hours=1),
+                    qso.datetime + timedelta(hours=1)
                 ),
                 frequency=qso.frequency,
-                mode=qso.mode,
-                initiator_location=qso.recipient_location,  # Their location when they were initiator
-                recipient_location=qso.initiator_location   # Your location when you were recipient
+                mode=qso.mode
             ).first()
 
-            if matching_qso and not matching_qso.confirmed:
-                # If a match is found and it's not already confirmed,
-                # confirm both QSOs
+            if matching_qso:
+                # If a match is found, confirm both QSOs regardless of location
                 matching_qso.confirmed = True
-                qso.confirmed = True
                 matching_qso.save()
+                qso.confirmed = True
                 qso.save()
 
         except User.DoesNotExist:
@@ -66,7 +65,6 @@ class QSOContactViewSet(viewsets.ModelViewSet):
     def rankings(self, request):
         """Get user rankings based on confirmed contacts"""
         User = get_user_model()
-
         users = User.objects.annotate(
             confirmed_contacts=Count(
                 'initiated_contacts',
@@ -74,8 +72,19 @@ class QSOContactViewSet(viewsets.ModelViewSet):
             ),
             total_contacts=Count('initiated_contacts')
         ).values('call_sign', 'confirmed_contacts', 'total_contacts')
-
         return Response(list(users))
+
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserUpdateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        if 'call_sign' in request.data:
+            del request.data['call_sign']
+        return super().update(request, *args, **kwargs)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -90,10 +99,18 @@ def change_password(request):
         return Response({'error': 'Incorrect old password'}, status=status.HTTP_400_BAD_REQUEST)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class UserProfileView(generics.RetrieveUpdateAPIView):
-    serializer_class = UserUpdateSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self):
-        return self.request.user
-
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def search_callsigns(request):
+    """Search for registered call signs"""
+    search_query = request.query_params.get('search', '').upper()
+    if len(search_query) < 2:
+        return Response([])
+    
+    users = User.objects.filter(
+        call_sign__istartswith=search_query
+    ).exclude(
+        call_sign=request.user.call_sign
+    ).values('call_sign', 'default_grid_square')[:10]
+    
+    return Response(users)

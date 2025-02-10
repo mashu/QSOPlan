@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/auth';
 import api from '@/lib/api';
 import { MODULATIONS, BANDS, type Band, type Modulation, type QSOFormData } from '@/lib/constants';
@@ -12,8 +12,15 @@ interface Props {
   onSuccess: () => void;
 }
 
+interface CallSignSuggestion {
+  call_sign: string;
+  default_grid_square?: string;
+}
+
 export default function QSOForm({ onSuccess }: Props) {
+  const { token, user } = useAuthStore();
   const [formData, setFormData] = useState<QSOFormData>({
+    initiator_call_sign: '',
     recipient: '',
     frequency: BANDS.CB[0].frequency,
     mode: 'SSB',
@@ -24,10 +31,38 @@ export default function QSOForm({ onSuccess }: Props) {
 
   const [selectedBand, setSelectedBand] = useState<Band>('CB');
   const [selectedChannel, setSelectedChannel] = useState(1);
-  const { token } = useAuthStore();
   const [error, setError] = useState('');
   const [mapOpen, setMapOpen] = useState(false);
   const [currentLocationField, setCurrentLocationField] = useState<'initiator' | 'recipient' | null>(null);
+  const [suggestions, setSuggestions] = useState<CallSignSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  useEffect(() => {
+    if (user?.call_sign) {
+      setFormData(prev => ({
+        ...prev,
+        initiator_call_sign: user.call_sign,
+        initiator_location: user.default_grid_square || prev.initiator_location
+      }));
+    }
+  }, [user]);
+
+  const fetchCallSignSuggestions = async (input: string) => {
+    if (input.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    try {
+      const response = await api.get<CallSignSuggestion[]>(`/api/users/callsigns/?search=${input}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSuggestions(response.data);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error('Failed to fetch call sign suggestions:', error);
+    }
+  };
 
   const handleBandChange = (band: Band) => {
     setSelectedBand(band);
@@ -77,14 +112,12 @@ export default function QSOForm({ onSuccess }: Props) {
         }
       });
 
-      setFormData({
+      setFormData(prev => ({
+        ...prev,
         recipient: '',
-        frequency: BANDS[selectedBand][0].frequency,
-        mode: 'SSB',
         datetime: new Date().toISOString().slice(0, 16),
-        initiator_location: '',
         recipient_location: '',
-      });
+      }));
 
       onSuccess();
     } catch (error) {
@@ -112,15 +145,60 @@ export default function QSOForm({ onSuccess }: Props) {
         <div className="grid grid-cols-2 gap-4">
           <input
             type="text"
-            value={formData.recipient}
-            onChange={(e) => setFormData({ ...formData, recipient: e.target.value.toUpperCase() })}
-            placeholder="Recipient Call Sign"
-            className="p-2 rounded bg-white/5 border border-white/20 text-white"
-            required
-            maxLength={10}
-            pattern="[A-Z0-9]{3,10}"
-            title="Call sign must be 3-10 alphanumeric characters"
+            value={formData.initiator_call_sign}
+            disabled
+            className="p-2 rounded bg-white/5 border border-white/20 text-white opacity-75 cursor-not-allowed"
+            title="Your call sign (set in profile)"
           />
+
+          <div className="relative">
+            <input
+              type="text"
+              value={formData.recipient}
+              onChange={(e) => {
+                const value = e.target.value.toUpperCase();
+                setFormData({ ...formData, recipient: value });
+                fetchCallSignSuggestions(value);
+              }}
+              onFocus={() => {
+                if (formData.recipient) {
+                  fetchCallSignSuggestions(formData.recipient);
+                }
+              }}
+              onBlur={() => {
+                setTimeout(() => setShowSuggestions(false), 200);
+              }}
+              placeholder="Recipient Call Sign"
+              className="w-full p-2 rounded bg-white/5 border border-white/20 text-white"
+              required
+              maxLength={10}
+              pattern="[A-Z0-9]{3,10}"
+              title="Call sign must be 3-10 alphanumeric characters"
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg">
+                {suggestions.map((suggestion) => (
+                  <div
+                    key={suggestion.call_sign}
+                    className="px-4 py-2 cursor-pointer hover:bg-gray-700 text-white"
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        recipient: suggestion.call_sign,
+                        recipient_location: suggestion.default_grid_square || prev.recipient_location
+                      }));
+                      setShowSuggestions(false);
+                    }}
+                  >
+                    {suggestion.call_sign}
+                    {suggestion.default_grid_square && 
+                      <span className="text-gray-400 ml-2">({suggestion.default_grid_square})</span>
+                    }
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           
           <div className="grid grid-cols-2 gap-2">
             <select
@@ -240,4 +318,3 @@ export default function QSOForm({ onSuccess }: Props) {
     </>
   );
 }
-

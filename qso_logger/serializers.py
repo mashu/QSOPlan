@@ -37,12 +37,14 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         fields = ('email', 'call_sign', 'default_grid_square')
         extra_kwargs = {
             'email': {'required': False},
-            'call_sign': {'required': False},
+            'call_sign': {'read_only': True},  # Make call_sign read-only
             'default_grid_square': {'required': False}
         }
 
-    def validate_call_sign(self, value):
-        return value.upper()
-
     def validate_default_grid_square(self, value):
         return value.upper() if value else value
+
+class CallSignSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('call_sign',)

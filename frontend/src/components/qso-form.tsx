@@ -98,37 +98,32 @@ export default function QSOForm({ onSuccess }: Props) {
     setError('');
     
     try {
-      const submissionData = {
+      await api.post('/api/qsos/', {
         ...formData,
         datetime: new Date(formData.datetime).toISOString(),
         recipient: formData.recipient.toUpperCase(),
         initiator_location: formData.initiator_location.toUpperCase(),
         recipient_location: formData.recipient_location.toUpperCase()
-      };
-
-      await api.post('/api/qsos/', submissionData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
+      // Reset form fields except for initiator data
       setFormData(prev => ({
         ...prev,
         recipient: '',
-        datetime: new Date().toISOString().slice(0, 16),
         recipient_location: '',
+        datetime: new Date().toISOString().slice(0, 16),
       }));
 
       onSuccess();
     } catch (error) {
       const apiError = error as APIError;
-      const errorMessage = apiError.response?.data?.detail 
-        ? apiError.response.data.detail
-        : Object.entries(apiError.response?.data || {})
-            .map(([key, value]) => `${key}: ${value}`)
-            .join(', ') || 'Failed to log contact';
-
-      setError(errorMessage);
+      setError(
+        apiError.response?.data?.detail || 
+        Object.values(apiError.response?.data || {}).join(', ') || 
+        'Failed to log contact'
+      );
     }
   };
 
@@ -136,13 +131,15 @@ export default function QSOForm({ onSuccess }: Props) {
     <>
       <form onSubmit={handleSubmit} className="space-y-4 bg-white/10 p-6 rounded-lg backdrop-blur-lg">
         <h2 className="text-xl font-bold text-white mb-4">Log New Contact</h2>
+        
         {error && (
-          <div className="bg-red-500/20 text-red-200 p-3 rounded mb-4">
+          <div className="bg-red-500/20 text-red-200 p-3 rounded">
             {error}
           </div>
         )}
         
         <div className="grid grid-cols-2 gap-4">
+          {/* Input fields */}
           <input
             type="text"
             value={formData.initiator_call_sign}
@@ -175,6 +172,8 @@ export default function QSOForm({ onSuccess }: Props) {
               pattern="[A-Z0-9]{3,10}"
               title="Call sign must be 3-10 alphanumeric characters"
             />
+            
+            {/* Suggestions dropdown */}
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg">
                 {suggestions.map((suggestion) => (
@@ -199,7 +198,8 @@ export default function QSOForm({ onSuccess }: Props) {
               </div>
             )}
           </div>
-          
+
+          {/* Band and Channel Selection */}
           <div className="grid grid-cols-2 gap-2">
             <select
               value={selectedBand}
@@ -224,6 +224,7 @@ export default function QSOForm({ onSuccess }: Props) {
             </select>
           </div>
 
+          {/* Mode Selection */}
           <select
             value={formData.mode}
             onChange={(e) => setFormData({ ...formData, mode: e.target.value as Modulation })}
@@ -234,6 +235,7 @@ export default function QSOForm({ onSuccess }: Props) {
             ))}
           </select>
 
+          {/* Date and Time */}
           <input
             type="datetime-local"
             value={formData.datetime}
@@ -242,6 +244,7 @@ export default function QSOForm({ onSuccess }: Props) {
             required
           />
 
+          {/* Location Fields */}
           <div className="grid grid-cols-4 gap-2">
             <input
               type="text"
@@ -297,6 +300,7 @@ export default function QSOForm({ onSuccess }: Props) {
         </button>
       </form>
 
+      {/* Map Dialog */}
       <Dialog open={mapOpen} onOpenChange={setMapOpen}>
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-gray-900 p-6 rounded-lg w-full max-w-2xl">

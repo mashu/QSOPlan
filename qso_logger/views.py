@@ -20,35 +20,58 @@ class QSOContactViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user_call_sign = self.request.user.call_sign
+        # Only return QSOs where the current user is the initiator
         return QSOContact.objects.filter(
-            Q(initiator=self.request.user) |
-            Q(recipient=user_call_sign)
+            initiator=self.request.user
         ).order_by('-datetime')
 
     def perform_create(self, serializer):
+        # First save the new QSO
         qso = serializer.save(initiator=self.request.user, confirmed=False)
+        
+        # Search for matching QSOs
         try:
-            recipient_user = User.objects.get(call_sign=qso.recipient)
-            matching_qso = QSOContact.objects.filter(
-                initiator=recipient_user,
-                recipient=qso.initiator.call_sign,
+            # Look for any QSO from the recipient to the initiator within the time window
+            potential_matches = QSOContact.objects.filter(
+                initiator__call_sign=qso.recipient,  # QSO initiated by the recipient
+                recipient=qso.initiator.call_sign,   # To the current initiator
                 datetime__range=(
                     qso.datetime - timedelta(hours=1),
                     qso.datetime + timedelta(hours=1)
                 ),
-                frequency=qso.frequency,
-                mode=qso.mode
-            ).first()
+                confirmed=False  # Only match unconfirmed QSOs
+            )
+
+            # Add frequency and mode matching criteria
+            # Allow for small frequency differences (within 0.005 MHz)
+            matching_qso = None
+            for potential_match in potential_matches:
+                freq_diff = abs(potential_match.frequency - qso.frequency)
+                if (freq_diff <= 0.005 and  # Frequency within 5 kHz
+                    potential_match.mode == qso.mode and  # Same mode
+                    potential_match.initiator_location == qso.recipient_location and  # Location match
+                    potential_match.recipient_location == qso.initiator_location):  # Cross-location match
+                    matching_qso = potential_match
+                    break
 
             if matching_qso:
+                # Update both QSOs to confirmed status
                 matching_qso.confirmed = True
                 matching_qso.save()
                 qso.confirmed = True
                 qso.save()
 
-        except User.DoesNotExist:
-            pass
+        except Exception as e:
+            # Log the error but don't stop the QSO from being created
+            print(f"Error during QSO matching: {str(e)}")
+
+    def perform_destroy(self, instance):
+        # Only allow deletion of unconfirmed QSOs
+        if instance.confirmed:
+            raise serializers.ValidationError(
+                "Cannot delete confirmed QSOs"
+            )
+        instance.delete()
 
     @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def rankings(self, request):

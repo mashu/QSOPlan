@@ -22,27 +22,34 @@ services:
       - "8000:8000"
     environment:
       - DEBUG=1
+      - DJANGO_SETTINGS_MODULE=QSOPlan.settings
       - POSTGRES_DB=qso_logger
       - POSTGRES_USER=qso_user
       - POSTGRES_PASSWORD=qso_password
       - POSTGRES_HOST=db
       - POSTGRES_PORT=5432
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+    volumes:
+      - .:/app
     depends_on:
       - db
     command: >
-      bash -c "python manage.py migrate &&
+      bash -c "python manage.py wait_for_db &&
+               python manage.py migrate &&
                python manage.py runserver 0.0.0.0:8000"
     networks:
       - qso_net
 
   frontend:
     container_name: qso_frontend
-    build: ./frontend
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
     restart: always
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://web:8000
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -55,12 +62,6 @@ services:
 networks:
   qso_net:
     driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.24.0.0/16
-          gateway: 172.24.0.1
 
 volumes:
   postgres_data:
-    driver: local

@@ -1,8 +1,10 @@
+// frontend/src/components/qso-list.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import axios from 'axios';
 import { useAuthStore } from '@/lib/auth';
+import { APIError } from '@/lib/types';
 
 interface QSO {
   id: number;
@@ -19,24 +21,25 @@ export default function QSOList() {
   const [qsos, setQsos] = useState<QSO[]>([]);
   const { token } = useAuthStore();
 
-  const fetchQSOs = async () => {
+  const fetchQSOs = useCallback(async () => {
     if (!token) return;
     
     try {
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/qsos/`, {
+      const response = await axios.get<QSO[]>(`${process.env.NEXT_PUBLIC_API_URL}/api/qsos/`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
       setQsos(response.data);
     } catch (error) {
-      console.error('Failed to fetch QSOs:', error);
+      const apiError = error as APIError;
+      console.error('Failed to fetch QSOs:', apiError);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     fetchQSOs();
-  }, [token]);
+  }, [fetchQSOs]);
 
   return (
     <div className="bg-white/10 p-6 rounded-lg backdrop-blur-lg mt-6">

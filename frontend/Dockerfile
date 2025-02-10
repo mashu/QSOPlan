@@ -1,23 +1,16 @@
-# Use Node 18 Alpine as base image
-FROM node:18-alpine
+FROM node:20-alpine
 
-# Set working directory
-WORKDIR ./
-
-# Copy package files
-COPY package*.json ./
+WORKDIR /app
 
 # Install dependencies
+COPY package*.json ./
 RUN npm install
 
-# Copy rest of the application
+# Copy project files
 COPY . .
 
-# Build the application
+# Build the app
 RUN npm run build
 
-# Expose the port
-EXPOSE 3000
-
-# Start the application
-CMD ["npm", "start"]
+# Start the app
+CMD ["npm", "run", "dev"]

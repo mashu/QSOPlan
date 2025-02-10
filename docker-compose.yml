@@ -1,0 +1,66 @@
+services:
+  db:
+    container_name: qso_db
+    image: postgres:15
+    restart: always
+    environment:
+      - POSTGRES_DB=qso_logger
+      - POSTGRES_USER=qso_user
+      - POSTGRES_PASSWORD=qso_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - qso_net
+
+  web:
+    container_name: qso_web
+    build: .
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=1
+      - POSTGRES_DB=qso_logger
+      - POSTGRES_USER=qso_user
+      - POSTGRES_PASSWORD=qso_password
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+    depends_on:
+      - db
+    command: >
+      bash -c "python manage.py migrate &&
+               python manage.py runserver 0.0.0.0:8000"
+    networks:
+      - qso_net
+
+  frontend:
+    container_name: qso_frontend
+    build: ./frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://web:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - qso_net
+    depends_on:
+      - web
+
+networks:
+  qso_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.24.0.0/16
+          gateway: 172.24.0.1
+
+volumes:
+  postgres_data:
+    driver: local

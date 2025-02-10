@@ -1,4 +1,3 @@
-// frontend/src/lib/types.ts
 export interface APIError {
   response?: {
     data?: {
@@ -15,4 +14,5 @@ export interface User {
   username: string;
   email: string;
   call_sign: string;
+  default_grid_square?: string;
 }

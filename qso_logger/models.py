@@ -9,6 +9,11 @@ class User(AbstractUser):
         validators=[RegexValidator(r'^[A-Z0-9]{3,10}$', 'Call sign must be 3-10 alphanumeric characters')]
     )
     email = models.EmailField(unique=True)
+    default_grid_square = models.CharField(
+        max_length=6,
+        blank=True,
+        validators=[RegexValidator(r'^[A-Z0-9]{6}$', 'Grid square must be exactly 6 characters')]
+    )
 
 class QSOContact(models.Model):
     initiator = models.ForeignKey(User, related_name='initiated_contacts', on_delete=models.CASCADE)
@@ -23,3 +28,4 @@ class QSOContact(models.Model):
     
     class Meta:
         unique_together = ['initiator', 'recipient', 'datetime']
+

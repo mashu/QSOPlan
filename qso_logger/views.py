@@ -20,7 +20,6 @@ class QSOContactViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Get all QSOs where the current user is either initiator or recipient"""
         user_call_sign = self.request.user.call_sign
         return QSOContact.objects.filter(
             Q(initiator=self.request.user) |
@@ -28,16 +27,9 @@ class QSOContactViewSet(viewsets.ModelViewSet):
         ).order_by('-datetime')
 
     def perform_create(self, serializer):
-        """Create a new QSO entry"""
-        # Save the new QSO (always unconfirmed initially)
         qso = serializer.save(initiator=self.request.user, confirmed=False)
-        
-        # Look for matching QSOs within the last hour
         try:
-            # Try to find the user by call sign
             recipient_user = User.objects.get(call_sign=qso.recipient)
-            
-            # Look for a matching QSO within 1 hour where locations are swapped
             matching_qso = QSOContact.objects.filter(
                 initiator=recipient_user,
                 recipient=qso.initiator.call_sign,
@@ -50,29 +42,31 @@ class QSOContactViewSet(viewsets.ModelViewSet):
             ).first()
 
             if matching_qso:
-                # If a match is found, confirm both QSOs regardless of location
                 matching_qso.confirmed = True
                 matching_qso.save()
                 qso.confirmed = True
                 qso.save()
 
         except User.DoesNotExist:
-            # If the recipient isn't registered in our system, 
-            # the QSO remains unconfirmed
             pass
 
     @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def rankings(self, request):
-        """Get user rankings based on confirmed contacts"""
-        User = get_user_model()
-        users = User.objects.annotate(
-            confirmed_contacts=Count(
-                'initiated_contacts',
-                filter=Q(initiated_contacts__confirmed=True)
-            ),
-            total_contacts=Count('initiated_contacts')
-        ).values('call_sign', 'confirmed_contacts', 'total_contacts')
-        return Response(list(users))
+        try:
+            User = get_user_model()
+            users = User.objects.annotate(
+                confirmed_contacts=Count(
+                    'initiated_contacts',
+                    filter=Q(initiated_contacts__confirmed=True)
+                ),
+                total_contacts=Count('initiated_contacts')
+            ).values('call_sign', 'confirmed_contacts', 'total_contacts')
+            return Response(list(users))
+        except Exception as e:
+            return Response(
+                {"error": "Failed to fetch rankings"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserUpdateSerializer
@@ -102,7 +96,6 @@ def change_password(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def search_callsigns(request):
-    """Search for registered call signs"""
     search_query = request.query_params.get('search', '').upper()
     if len(search_query) < 2:
         return Response([])

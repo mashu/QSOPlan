@@ -3,19 +3,36 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #000000;
+  --foreground: #ffffff;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Form styles */
+select,
+input,
+textarea {
+  @apply bg-gray-700 border-gray-600 text-white placeholder-gray-400;
+}
+
+select option {
+  @apply bg-gray-800 text-white;
+}
+
+/* Dropdown menus */
+[role="listbox"],
+[role="menu"],
+.dropdown-content {
+  @apply bg-gray-800 border-gray-700 text-white;
+}
+
+/* Hover states for dropdown items */
+[role="option"]:hover,
+[role="menuitem"]:hover,
+.dropdown-item:hover {
+  @apply bg-gray-700;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
 }

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
+from django.db import IntegrityError
 from .models import User, QSOContact
 
 class UserSerializer(serializers.ModelSerializer):
@@ -23,6 +24,14 @@ class QSOContactSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('confirmed', 'initiator')
 
+    def create(self, validated_data):
+        try:
+            return super().create(validated_data)
+        except IntegrityError:
+            raise serializers.ValidationError({
+                "error": "You already have a QSO logged with this station at this exact time. Please use a different time."
+            })
+
 class PasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
@@ -37,7 +46,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         fields = ('email', 'call_sign', 'default_grid_square')
         extra_kwargs = {
             'email': {'required': False},
-            'call_sign': {'read_only': True},  # Make call_sign read-only
+            'call_sign': {'read_only': True},
             'default_grid_square': {'required': False}
         }
 

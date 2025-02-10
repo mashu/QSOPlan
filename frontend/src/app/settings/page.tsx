@@ -1,4 +1,3 @@
-// frontend/src/app/settings/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,14 +6,17 @@ import Link from 'next/link';
 import { useAuthStore } from '@/lib/auth';
 import api from '@/lib/api';
 import { APIError } from '@/lib/types';
+import GridMapSelector from '@/components/grid-map';
+import { Dialog } from '@/components/ui/dialog';
 
 export default function Settings() {
   const router = useRouter();
   const { token, user, setUser } = useAuthStore();
+  const [mapOpen, setMapOpen] = useState(false);
   
   const [formData, setFormData] = useState({
     email: '',
-    call_sign: '', // This will be display-only
+    call_sign: '',
     default_grid_square: '',
   });
 
@@ -46,6 +48,11 @@ export default function Settings() {
 
     fetchProfile();
   }, [token, router]);
+
+  const handleLocationSelect = (gridSquare: string) => {
+    setFormData(prev => ({ ...prev, default_grid_square: gridSquare }));
+    setMapOpen(false);
+  };
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,14 +156,23 @@ export default function Settings() {
 
             <div>
               <label className="block text-white mb-2">Default Grid Square</label>
-              <input
-                type="text"
-                value={formData.default_grid_square}
-                onChange={(e) => setFormData({ ...formData, default_grid_square: e.target.value.toUpperCase() })}
-                className="w-full p-2 rounded bg-white/5 border border-white/20 text-white"
-                pattern="[A-Z0-9]{6}"
-                title="Grid square must be exactly 6 characters"
-              />
+              <div className="grid grid-cols-4 gap-2">
+                <input
+                  type="text"
+                  value={formData.default_grid_square}
+                  onChange={(e) => setFormData({ ...formData, default_grid_square: e.target.value.toUpperCase() })}
+                  className="col-span-3 p-2 rounded bg-white/5 border border-white/20 text-white"
+                  pattern="[A-Z0-9]{6}"
+                  title="Grid square must be exactly 6 characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMapOpen(true)}
+                  className="p-2 rounded bg-blue-500/20 text-blue-300 hover:bg-blue-500/30"
+                >
+                  Map
+                </button>
+              </div>
             </div>
 
             <button
@@ -213,6 +229,25 @@ export default function Settings() {
           </form>
         </div>
       </div>
+
+      <Dialog open={mapOpen} onOpenChange={setMapOpen}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-gray-900 p-6 rounded-lg w-full max-w-2xl">
+            <h3 className="text-xl font-bold text-white mb-4">
+              Select Your Default Location
+            </h3>
+            <GridMapSelector onLocationSelect={handleLocationSelect} />
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setMapOpen(false)}
+                className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </Dialog>
     </main>
   );
 }

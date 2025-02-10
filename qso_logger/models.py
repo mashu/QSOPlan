@@ -17,7 +17,7 @@ class User(AbstractUser):
 
 class QSOContact(models.Model):
     initiator = models.ForeignKey(User, related_name='initiated_contacts', on_delete=models.CASCADE)
-    recipient = models.CharField(max_length=10)  # Call sign of the other station
+    recipient = models.CharField(max_length=10)
     frequency = models.DecimalField(max_digits=10, decimal_places=3)  # MHz
     mode = models.CharField(max_length=10)  # e.g., SSB, CW, FT8
     datetime = models.DateTimeField()
@@ -25,7 +25,6 @@ class QSOContact(models.Model):
     recipient_location = models.CharField(max_length=6)  # Grid square
     confirmed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         unique_together = ['initiator', 'recipient', 'datetime']
-

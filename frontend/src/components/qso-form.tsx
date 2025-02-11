@@ -3,7 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/lib/auth';
 import api from '@/lib/api';
-import { MODULATIONS, BANDS, type Band, type Modulation, type QSOFormData } from '@/lib/constants';
+import {
+  Band,
+  Modulation,
+  QSOFormData,
+  BANDS,
+  getBandModulations,
+  isValidModulationForBand,
+  getDefaultModulationForBand
+} from '@/lib/constants';
 import { APIError } from '@/lib/types';
 import GridMapSelector from './grid-map';
 import { Dialog } from './ui/dialog';
@@ -23,7 +31,7 @@ export default function QSOForm({ onSuccess }: Props) {
     initiator_call_sign: '',
     recipient: '',
     frequency: BANDS.CB[0].frequency,
-    mode: 'SSB',
+    mode: getDefaultModulationForBand('CB'),
     datetime: new Date().toISOString().slice(0, 16),
     initiator_location: '',
     recipient_location: '',
@@ -36,6 +44,7 @@ export default function QSOForm({ onSuccess }: Props) {
   const [currentLocationField, setCurrentLocationField] = useState<'initiator' | 'recipient' | null>(null);
   const [suggestions, setSuggestions] = useState<CallSignSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [availableModulations, setAvailableModulations] = useState<Modulation[]>(getBandModulations('CB'));
 
   useEffect(() => {
     if (user?.call_sign) {
@@ -46,6 +55,20 @@ export default function QSOForm({ onSuccess }: Props) {
       }));
     }
   }, [user]);
+
+  useEffect(() => {
+    // Update available modulations when band changes
+    const modulations = getBandModulations(selectedBand);
+    setAvailableModulations(modulations);
+
+    // Set default modulation for the band if current modulation is invalid
+    if (!isValidModulationForBand(selectedBand, formData.mode)) {
+      setFormData(prev => ({
+        ...prev,
+        mode: getDefaultModulationForBand(selectedBand)
+      }));
+    }
+  }, [selectedBand, formData.mode]);
 
   const fetchCallSignSuggestions = async (input: string) => {
     if (input.length < 2) {
@@ -68,7 +91,11 @@ export default function QSOForm({ onSuccess }: Props) {
     setSelectedBand(band);
     setSelectedChannel(1);
     const newFrequency = BANDS[band][0].frequency;
-    setFormData(prev => ({ ...prev, frequency: newFrequency }));
+    setFormData(prev => ({
+      ...prev,
+      frequency: newFrequency,
+      mode: getDefaultModulationForBand(band)
+    }));
   };
 
   const handleChannelChange = (channel: number) => {
@@ -96,7 +123,7 @@ export default function QSOForm({ onSuccess }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     try {
       await api.post('/api/qsos/', {
         ...formData,
@@ -120,8 +147,8 @@ export default function QSOForm({ onSuccess }: Props) {
     } catch (error) {
       const apiError = error as APIError;
       setError(
-        apiError.response?.data?.detail || 
-        Object.values(apiError.response?.data || {}).join(', ') || 
+        apiError.response?.data?.detail ||
+        Object.values(apiError.response?.data || {}).join(', ') ||
         'Failed to log contact'
       );
     }
@@ -131,13 +158,13 @@ export default function QSOForm({ onSuccess }: Props) {
     <>
       <form onSubmit={handleSubmit} className="space-y-4 bg-white/10 p-6 rounded-lg backdrop-blur-lg">
         <h2 className="text-xl font-bold text-white mb-4">Log New Contact</h2>
-        
+
         {error && (
           <div className="bg-red-500/20 text-red-200 p-3 rounded">
             {error}
           </div>
         )}
-        
+
         <div className="grid grid-cols-2 gap-4">
           {/* Input fields */}
           <input
@@ -172,7 +199,7 @@ export default function QSOForm({ onSuccess }: Props) {
               pattern="[A-Z0-9]{3,10}"
               title="Call sign must be 3-10 alphanumeric characters"
             />
-            
+
             {/* Suggestions dropdown */}
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg">
@@ -190,7 +217,7 @@ export default function QSOForm({ onSuccess }: Props) {
                     }}
                   >
                     {suggestion.call_sign}
-                    {suggestion.default_grid_square && 
+                    {suggestion.default_grid_square &&
                       <span className="text-gray-400 ml-2">({suggestion.default_grid_square})</span>
                     }
                   </div>
@@ -210,7 +237,7 @@ export default function QSOForm({ onSuccess }: Props) {
                 <option key={band} value={band}>{band}</option>
               ))}
             </select>
-            
+
             <select
               value={selectedChannel}
               onChange={(e) => handleChannelChange(Number(e.target.value))}
@@ -230,7 +257,7 @@ export default function QSOForm({ onSuccess }: Props) {
             onChange={(e) => setFormData({ ...formData, mode: e.target.value as Modulation })}
             className="p-2 rounded bg-white/5 border border-white/20 text-white"
           >
-            {MODULATIONS.map((mode) => (
+            {availableModulations.map((mode) => (
               <option key={mode} value={mode}>{mode}</option>
             ))}
           </select>

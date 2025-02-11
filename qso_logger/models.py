@@ -1,3 +1,4 @@
+# qso_logger/models.py
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import RegexValidator
@@ -17,12 +18,15 @@ class User(AbstractUser):
         blank=True,
         validators=[RegexValidator(r'^[A-Z]{2}[0-9]{2}[A-Z]{2}$', 'Grid square must be in format AA00AA')]
     )
+    is_approved = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         if self.default_grid_square:
             self.default_grid_square = self.default_grid_square.upper()
         if self.call_sign:
             self.call_sign = self.call_sign.upper()
+        if not self.is_approved:
+            self.is_active = False
         super().save(*args, **kwargs)
 
 class QSOContact(models.Model):
@@ -56,7 +60,6 @@ class QSOContact(models.Model):
         verbose_name_plural = "QSO Contacts"
 
     def clean(self):
-        # Convert to uppercase before validation
         if self.recipient:
             self.recipient = self.recipient.upper()
         if self.initiator_location:
@@ -64,11 +67,9 @@ class QSOContact(models.Model):
         if self.recipient_location:
             self.recipient_location = self.recipient_location.upper()
 
-        # Prevent self-contacts
         if self.initiator and self.initiator.call_sign == self.recipient:
             raise ValidationError("Cannot log a QSO with yourself")
 
-        # Check for existing QSO within same minute
         if self.initiator and self.recipient and self.datetime:
             existing = QSOContact.objects.filter(
                 initiator=self.initiator,
@@ -79,7 +80,7 @@ class QSOContact(models.Model):
                 datetime__hour=self.datetime.hour,
                 datetime__minute=self.datetime.minute
             ).exclude(pk=self.pk).first()
-            
+
             if existing:
                 raise ValidationError(
                     "You already have a QSO logged with this station at this time. "

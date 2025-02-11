@@ -1,3 +1,4 @@
+# qso_logger/views.py
 from rest_framework import viewsets, status, generics
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -8,11 +9,12 @@ from django.utils import timezone
 from datetime import timedelta
 from .models import QSOContact, User
 from .serializers import (
-    QSOContactSerializer, 
+    QSOContactSerializer,
     UserSerializer,
     PasswordChangeSerializer,
     UserUpdateSerializer,
-    CallSignSerializer
+    CallSignSerializer,
+    RegistrationSerializer
 )
 
 class QSOContactViewSet(viewsets.ModelViewSet):
@@ -28,7 +30,7 @@ class QSOContactViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # First save the new QSO
         qso = serializer.save(initiator=self.request.user, confirmed=False)
-        
+
         # Search for matching QSOs
         try:
             # Look for any QSO from the recipient to the initiator within the time window
@@ -122,11 +124,29 @@ def search_callsigns(request):
     search_query = request.query_params.get('search', '').upper()
     if len(search_query) < 2:
         return Response([])
-    
+
     users = User.objects.filter(
         call_sign__istartswith=search_query
     ).exclude(
         call_sign=request.user.call_sign
     ).values('call_sign', 'default_grid_square')[:10]
-    
+
     return Response(users)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register(request):
+    serializer = RegistrationSerializer(data=request.data)
+    if serializer.is_valid():
+        try:
+            user = serializer.save()
+            return Response({
+                'message': 'Registration successful. Please wait for admin approval.',
+                'email': user.email,
+                'call_sign': user.call_sign
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

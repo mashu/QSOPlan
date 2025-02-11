@@ -1,3 +1,4 @@
+# qso_logger/serializers.py
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.db import IntegrityError
@@ -28,14 +29,50 @@ class UserSerializer(serializers.ModelSerializer):
         )
         return user
 
+class RegistrationSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ('email', 'call_sign', 'default_grid_square', 'password')
+        extra_kwargs = {
+            'email': {'required': True},
+            'call_sign': {'required': True},
+            'default_grid_square': {'required': True},
+        }
+
+    def validate_call_sign(self, value):
+        value = value.upper()
+        if not re.match(r'^[A-Z0-9]{3,10}$', value):
+            raise serializers.ValidationError('Call sign must be 3-10 alphanumeric characters')
+        return value
+
+    def validate_default_grid_square(self, value):
+        value = value.upper()
+        if not re.match(r'^[A-Z]{2}[0-9]{2}[A-Z]{2}$', value):
+            raise serializers.ValidationError('Grid square must be in format AA00AA')
+        return value
+
+    def create(self, validated_data):
+        user = User.objects.create_user(
+            username=validated_data['call_sign'],
+            email=validated_data['email'],
+            call_sign=validated_data['call_sign'],
+            default_grid_square=validated_data['default_grid_square'],
+            password=validated_data['password'],
+            is_active=False,
+            is_approved=False
+        )
+        return user
+
 class QSOContactSerializer(serializers.ModelSerializer):
     initiator_callsign = serializers.CharField(source='initiator.call_sign', read_only=True)
-    
+
     class Meta:
         model = QSOContact
         fields = (
-            'id', 'initiator', 'initiator_callsign', 'recipient', 
-            'frequency', 'mode', 'datetime', 'initiator_location', 
+            'id', 'initiator', 'initiator_callsign', 'recipient',
+            'frequency', 'mode', 'datetime', 'initiator_location',
             'recipient_location', 'confirmed'
         )
         read_only_fields = ('confirmed', 'initiator')
@@ -55,7 +92,6 @@ class QSOContactSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        # Convert strings to uppercase
         if 'recipient' in data:
             data['recipient'] = data['recipient'].upper()
         if 'initiator_location' in data:
@@ -63,13 +99,11 @@ class QSOContactSerializer(serializers.ModelSerializer):
         if 'recipient_location' in data:
             data['recipient_location'] = data['recipient_location'].upper()
 
-        # Prevent self-contacts
         if self.context['request'].user.call_sign == data.get('recipient'):
             raise serializers.ValidationError({
                 "recipient": "Cannot log a QSO with yourself"
             })
 
-        # Validate frequency range
         if 'frequency' in data:
             if not (26.0 <= data['frequency'] <= 900.0):
                 raise serializers.ValidationError({
@@ -81,7 +115,7 @@ class QSOContactSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         try:
             instance = QSOContact(**validated_data)
-            instance.clean()  # This will run our custom validation
+            instance.clean()
             return super().create(validated_data)
         except ValidationError as e:
             if hasattr(e, 'message_dict'):

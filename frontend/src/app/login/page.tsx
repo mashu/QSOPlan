@@ -6,11 +6,13 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth';
 import { APIError } from '@/lib/types';
 import Link from 'next/link';
+import RegisterDialog from '@/components/registration-dialog';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [registerOpen, setRegisterOpen] = useState(false);
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
 
@@ -53,7 +55,7 @@ export default function Login() {
           
           <div className="space-y-2">
             <label htmlFor="username" className="block text-white">
-              Username
+              Username / Call Sign
             </label>
             <input
               type="text"
@@ -85,8 +87,23 @@ export default function Login() {
           >
             Login
           </button>
+
+          <div className="text-center mt-4">
+            <button
+              type="button"
+              onClick={() => setRegisterOpen(true)}
+              className="text-blue-400 hover:text-blue-300 transition"
+            >
+              New user? Register here
+            </button>
+          </div>
         </form>
       </div>
+
+      <RegisterDialog
+        open={registerOpen}
+        onOpenChange={setRegisterOpen}
+      />
     </main>
   );
 }

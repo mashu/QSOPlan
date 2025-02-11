@@ -55,11 +55,11 @@ class QSOContact(models.Model):
             models.Index(fields=['initiator', 'recipient', 'datetime']),
             models.Index(fields=['frequency', 'mode', 'datetime']),
         ]
-        unique_together = ['initiator', 'recipient', 'datetime']
         verbose_name = "QSO Contact"
         verbose_name_plural = "QSO Contacts"
 
     def clean(self):
+        # Normalize input fields to uppercase
         if self.recipient:
             self.recipient = self.recipient.upper()
         if self.initiator_location:
@@ -67,24 +67,26 @@ class QSOContact(models.Model):
         if self.recipient_location:
             self.recipient_location = self.recipient_location.upper()
 
+        # Prevent self-QSOs
         if self.initiator and self.initiator.call_sign == self.recipient:
             raise ValidationError("Cannot log a QSO with yourself")
 
+        # Validate time constraints
         if self.initiator and self.recipient and self.datetime:
+            hour_before = self.datetime - timedelta(hours=1)
+            
+            # Check for existing QSOs initiated by the same user to the same recipient
             existing = QSOContact.objects.filter(
                 initiator=self.initiator,
                 recipient=self.recipient,
-                datetime__year=self.datetime.year,
-                datetime__month=self.datetime.month,
-                datetime__day=self.datetime.day,
-                datetime__hour=self.datetime.hour,
-                datetime__minute=self.datetime.minute
-            ).exclude(pk=self.pk).first()
+                datetime__gte=hour_before,
+                datetime__lte=self.datetime
+            ).exclude(pk=self.pk).exists()
 
             if existing:
                 raise ValidationError(
-                    "You already have a QSO logged with this station at this time. "
-                    "Please wait at least one minute between logging contacts with the same station."
+                    "You have already logged a QSO with this station within the last hour. "
+                    "Please wait at least one hour before logging another QSO with the same station."
                 )
 
         super().clean()

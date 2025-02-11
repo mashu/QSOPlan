@@ -30,35 +30,42 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 class RegistrationSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+    username = serializers.CharField(required=True)
+    password = serializers.CharField(write_only=True, required=True)
+    email = serializers.EmailField(required=True)
+    call_sign = serializers.CharField(required=True)
+    default_grid_square = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = User
-        fields = ('email', 'call_sign', 'default_grid_square', 'password')
-        extra_kwargs = {
-            'email': {'required': True},
-            'call_sign': {'required': True},
-            'default_grid_square': {'required': True},
-        }
+        fields = ('username', 'email', 'call_sign', 'default_grid_square', 'password')
+
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError('A user with that username already exists.')
+        return value
 
     def validate_call_sign(self, value):
         value = value.upper()
         if not re.match(r'^[A-Z0-9]{3,10}$', value):
             raise serializers.ValidationError('Call sign must be 3-10 alphanumeric characters')
+        if User.objects.filter(call_sign=value).exists():
+            raise serializers.ValidationError('A user with that call sign already exists.')
         return value
 
     def validate_default_grid_square(self, value):
-        value = value.upper()
-        if not re.match(r'^[A-Z]{2}[0-9]{2}[A-Z]{2}$', value):
-            raise serializers.ValidationError('Grid square must be in format AA00AA')
+        if value:
+            value = value.upper()
+            if not re.match(r'^[A-Z]{2}[0-9]{2}[A-Z]{2}$', value):
+                raise serializers.ValidationError('Grid square must be in format AA00AA')
         return value
 
     def create(self, validated_data):
         user = User.objects.create_user(
-            username=validated_data['call_sign'],
+            username=validated_data['username'],
             email=validated_data['email'],
             call_sign=validated_data['call_sign'],
-            default_grid_square=validated_data['default_grid_square'],
+            default_grid_square=validated_data.get('default_grid_square', ''),
             password=validated_data['password'],
             is_active=False,
             is_approved=False

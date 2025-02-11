@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth';
 import Link from 'next/link';
 import axios from 'axios';
+import RegistrationDialog from '@/components/registration-dialog';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [registrationOpen, setRegistrationOpen] = useState(false);
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
 
@@ -89,8 +91,23 @@ export default function Login() {
           >
             Login
           </button>
+
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => setRegistrationOpen(true)}
+              className="text-blue-400 hover:text-blue-300 transition"
+            >
+              Need an account? Register here
+            </button>
+          </div>
         </form>
       </div>
+
+      <RegistrationDialog 
+        open={registrationOpen}
+        onOpenChange={setRegistrationOpen}
+      />
     </main>
   );
 }

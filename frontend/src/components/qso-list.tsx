@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useCallback, useState } from 'react';
-import axios from 'axios';
 import { useAuthStore } from '@/lib/auth';
 import { APIError } from '@/lib/types';
+import api from '@/lib/api';  // Import the configured api instance
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Trash2 } from 'lucide-react';
 
@@ -29,7 +29,7 @@ export default function QSOList() {
     if (!token || !user?.call_sign) return;
 
     try {
-      const response = await axios.get<QSO[]>(`${process.env.NEXT_PUBLIC_API_URL}/api/qsos/`, {
+      const response = await api.get<QSO[]>('/api/qsos/', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -47,7 +47,7 @@ export default function QSOList() {
     if (!token) return;
 
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/qsos/${id}/`, {
+      await api.delete(`/api/qsos/${id}/`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

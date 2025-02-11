@@ -138,7 +138,14 @@ export default function RegistrationDialog({ open, onOpenChange }: Props) {
                 onChange={handleInputChange}
                 className="w-full p-2 rounded bg-white/5 border border-white/20 text-white"
                 required
+                minLength={3}
+                maxLength={30}
+                pattern="^[a-zA-Z0-9_-]+$"
+                title="Username can only contain letters, numbers, underscores, and hyphens"
               />
+              <p className="text-sm text-gray-400 mt-1">
+                This will be used to log in to your account
+              </p>
             </div>
             
             <div>

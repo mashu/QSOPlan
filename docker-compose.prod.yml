@@ -1,0 +1,76 @@
+services:
+  db:
+    container_name: qso_db
+    image: postgres:15
+    restart: always
+    environment:
+      - POSTGRES_DB=qso_logger
+      - POSTGRES_USER=qso_user
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - qso_net
+
+  web:
+    container_name: qso_web
+    build: .
+    restart: always
+    environment:
+      - DEBUG=0
+      - DJANGO_SETTINGS_MODULE=QSOPlan.settings
+      - POSTGRES_DB=qso_logger
+      - POSTGRES_USER=qso_user
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - CORS_ALLOWED_ORIGINS=http://${SERVER_IP}
+      - ALLOWED_HOSTS=${SERVER_IP}
+      - SECRET_KEY=${DJANGO_SECRET_KEY}
+    volumes:
+      - static_files:/app/staticfiles
+    depends_on:
+      - db
+    command: >
+      bash -c "python manage.py wait_for_db &&
+               python manage.py migrate &&
+               python manage.py collectstatic --noinput &&
+               gunicorn QSOPlan.wsgi:application --bind 0.0.0.0:8000"
+    networks:
+      - qso_net
+
+  frontend:
+    container_name: qso_frontend
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - NEXT_PUBLIC_API_URL=http://${SERVER_IP}
+    restart: always
+    networks:
+      - qso_net
+    depends_on:
+      - web
+
+  nginx:
+    container_name: qso_nginx
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - static_files:/usr/share/nginx/static
+    depends_on:
+      - web
+      - frontend
+    networks:
+      - qso_net
+
+networks:
+  qso_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  static_files:

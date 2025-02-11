@@ -1,18 +1,15 @@
-// frontend/src/app/login/page.tsx
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth';
-import { APIError } from '@/lib/types';
 import Link from 'next/link';
-import RegisterDialog from '@/components/registration-dialog';
+import axios from 'axios';
 
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [registerOpen, setRegisterOpen] = useState(false);
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
 
@@ -24,8 +21,13 @@ export default function Login() {
       await login(username, password);
       router.push('/dashboard');
     } catch (error) {
-      const apiError = error as APIError;
-      setError(apiError.response?.data?.detail || 'Login failed');
+      if (axios.isAxiosError(error) && error.response) {
+        const errorMessage = error.response.data?.detail || 
+                         'Invalid credentials or account not activated';
+        setError(errorMessage);
+      } else {
+        setError('An error occurred during login. Please try again.');
+      }
     }
   };
 
@@ -55,7 +57,7 @@ export default function Login() {
           
           <div className="space-y-2">
             <label htmlFor="username" className="block text-white">
-              Username / Call Sign
+              Username
             </label>
             <input
               type="text"
@@ -87,23 +89,8 @@ export default function Login() {
           >
             Login
           </button>
-
-          <div className="text-center mt-4">
-            <button
-              type="button"
-              onClick={() => setRegisterOpen(true)}
-              className="text-blue-400 hover:text-blue-300 transition"
-            >
-              New user? Register here
-            </button>
-          </div>
         </form>
       </div>
-
-      <RegisterDialog
-        open={registerOpen}
-        onOpenChange={setRegisterOpen}
-      />
     </main>
   );
 }

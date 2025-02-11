@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import axios from 'axios';
-import { User, APIError } from './types';
+import type { User } from './types';
 
 interface AuthState {
   token: string | null;
@@ -29,19 +29,21 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   login: async (username, password) => {
     try {
-      const response = await axios.post<{ access: string }>(`${process.env.NEXT_PUBLIC_API_URL}/api/token/`, {
-        username,
-        password,
-      });
+      const response = await axios.post<{ access: string }>(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/token/`, 
+        { username, password }
+      );
       const token = response.data.access;
       if (typeof window !== 'undefined') {
         localStorage.setItem('token', token);
       }
       set({ token });
     } catch (error) {
-      const apiError = error as APIError;
-      console.error('Login error:', apiError.response?.data || apiError);
-      throw apiError;
+      if (axios.isAxiosError(error) && error.response) {
+        throw error;
+      } else {
+        throw new Error('Network error occurred during login');
+      }
     }
   },
 }));

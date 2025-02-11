@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/dialog';
-import { useAuthStore } from '@/lib/auth';
 import { APIError } from '@/lib/types';
 import api from '@/lib/api';
 import GridMapSelector from './grid-map';
@@ -23,9 +21,6 @@ interface Props {
 }
 
 export default function RegistrationDialog({ open, onOpenChange }: Props) {
-  const router = useRouter();
-  const login = useAuthStore((state) => state.login);
-
   const [formData, setFormData] = useState<RegistrationData>({
     username: '',
     email: '',
@@ -34,19 +29,20 @@ export default function RegistrationDialog({ open, onOpenChange }: Props) {
     call_sign: '',
     default_grid_square: '',
   });
-
+  
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     let processedValue = value;
-
+    
     // Convert call_sign and grid_square to uppercase
     if (name === 'call_sign' || name === 'default_grid_square') {
       processedValue = value.toUpperCase();
     }
-
+    
     setFormData((prev) => ({
       ...prev,
       [name]: processedValue,
@@ -63,7 +59,6 @@ export default function RegistrationDialog({ open, onOpenChange }: Props) {
     }
 
     try {
-      // Register the user
       await api.post('/api/register/', {
         username: formData.username,
         email: formData.email,
@@ -72,33 +67,67 @@ export default function RegistrationDialog({ open, onOpenChange }: Props) {
         default_grid_square: formData.default_grid_square || undefined,
       });
 
-      // Log in the user
-      await login(formData.username, formData.password);
+      // Show success message
+      setSuccess(true);
+      
+      // Reset form
+      setFormData({
+        username: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        call_sign: '',
+        default_grid_square: '',
+      });
 
-      // Close the dialog and redirect
-      onOpenChange(false);
-      router.push('/dashboard');
     } catch (error) {
       const apiError = error as APIError;
-      const errorMessage = apiError.response?.data?.detail ||
+      const errorMessage = apiError.response?.data?.detail || 
                           Object.values(apiError.response?.data || {}).join(', ') ||
                           'Registration failed';
       setError(errorMessage);
     }
   };
 
+  if (success) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-gray-900 p-6 rounded-lg w-full max-w-md">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-white mb-4">Registration Successful!</h2>
+              <p className="text-gray-300 mb-6">
+                Your account has been created and is pending admin approval. 
+                You will be able to log in once your account is activated.
+              </p>
+              <button
+                onClick={() => {
+                  onOpenChange(false);
+                  setSuccess(false);
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
         <div className="bg-gray-900 p-6 rounded-lg w-full max-w-md">
           <h2 className="text-2xl font-bold text-white mb-6">Register Account</h2>
-
+          
           {error && (
             <div className="bg-red-500/20 text-red-200 p-3 rounded mb-4">
               {error}
             </div>
           )}
-
+          
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-white mb-1">Username</label>
@@ -111,7 +140,7 @@ export default function RegistrationDialog({ open, onOpenChange }: Props) {
                 required
               />
             </div>
-
+            
             <div>
               <label className="block text-white mb-1">Email</label>
               <input
@@ -123,7 +152,7 @@ export default function RegistrationDialog({ open, onOpenChange }: Props) {
                 required
               />
             </div>
-
+            
             <div>
               <label className="block text-white mb-1">Call Sign</label>
               <input
@@ -138,7 +167,7 @@ export default function RegistrationDialog({ open, onOpenChange }: Props) {
                 title="Call sign must be 3-10 alphanumeric characters"
               />
             </div>
-
+            
             <div>
               <label className="block text-white mb-1">Grid Square (Optional)</label>
               <div className="grid grid-cols-4 gap-2">
@@ -161,7 +190,7 @@ export default function RegistrationDialog({ open, onOpenChange }: Props) {
                 </button>
               </div>
             </div>
-
+            
             <div>
               <label className="block text-white mb-1">Password</label>
               <input
@@ -174,7 +203,7 @@ export default function RegistrationDialog({ open, onOpenChange }: Props) {
                 minLength={8}
               />
             </div>
-
+            
             <div>
               <label className="block text-white mb-1">Confirm Password</label>
               <input
@@ -187,7 +216,7 @@ export default function RegistrationDialog({ open, onOpenChange }: Props) {
                 minLength={8}
               />
             </div>
-
+            
             <div className="flex justify-end space-x-2 pt-4">
               <button
                 type="button"

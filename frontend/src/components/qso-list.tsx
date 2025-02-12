@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useCallback, useState } from 'react';
-import { useAuthStore } from '@/lib/auth';
+import useAuthStore from '@/lib/auth';
 import { APIError } from '@/lib/types';
 import api from '@/lib/api';  // Import the configured api instance
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';

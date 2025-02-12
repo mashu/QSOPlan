@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/lib/auth';
+import useAuthStore from '@/lib/auth';
 import Link from 'next/link';
 import axios from 'axios';
 import RegistrationDialog from '@/components/registration-dialog';

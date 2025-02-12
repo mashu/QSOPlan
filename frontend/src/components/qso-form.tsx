@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '@/lib/auth';
+import useAuthStore from '@/lib/auth';
 import api from '@/lib/api';
 import {
   Band,

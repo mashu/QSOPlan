@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthStore } from '@/lib/auth';
+import useAuthStore from '@/lib/auth';
 import QSOList from '@/components/qso-list';
 import QSOForm from '@/components/qso-form';
 import api from '@/lib/api';

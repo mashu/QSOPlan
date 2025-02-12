@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthStore } from '@/lib/auth';
+import useAuthStore from '@/lib/auth';
 import api from '@/lib/api';
 import { APIError } from '@/lib/types';
 import GridMapSelector from '@/components/grid-map';

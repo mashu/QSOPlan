@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import axios from 'axios';  // Added back for type checking
 import api from './api';
 import type { User } from './types';
 

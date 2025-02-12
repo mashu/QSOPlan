@@ -1,49 +1,40 @@
-import { create } from 'zustand';
 import axios from 'axios';
-import type { User } from './types';
 
-interface AuthState {
-  token: string | null;
-  user: User | null;
-  setToken: (token: string) => void;
-  setUser: (user: User) => void;
-  logout: () => void;
-  login: (username: string, password: string) => Promise<void>;
+// Ensure we have a valid base URL, throw an error if not configured
+const baseURL = process.env.NEXT_PUBLIC_API_URL;
+if (!baseURL) {
+  console.error('NEXT_PUBLIC_API_URL environment variable is not configured');
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
-  user: null,
-  setToken: (token) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('token', token);
-    }
-    set({ token });
+const api = axios.create({
+  baseURL,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
-  setUser: (user) => set({ user }),
-  logout: () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-    }
-    set({ token: null, user: null });
+  withCredentials: true
+});
+
+// Add request interceptor for debugging (optional)
+api.interceptors.request.use(request => {
+  console.log('Starting Request:', request.url);
+  return request;
+});
+
+// Add response interceptor for debugging (optional)
+api.interceptors.response.use(
+  response => {
+    console.log('Response:', response.status);
+    return response;
   },
-  login: async (username, password) => {
-    try {
-      const response = await axios.post<{ access: string }>(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/token/`, 
-        { username, password }
-      );
-      const token = response.data.access;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('token', token);
-      }
-      set({ token });
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.response) {
-        throw error;
-      } else {
-        throw new Error('Network error occurred during login');
-      }
-    }
-  },
-}));
+  error => {
+    console.error('API Error:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+    return Promise.reject(error);
+  }
+);
+
+export default api;
